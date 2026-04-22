@@ -1,0 +1,2453 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>IDP Consulting - Khôi Định</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap");
+
+      body {
+        background-color: #f8fafc;
+        color: #0f172a;
+        font-family: "Inter", sans-serif;
+        overflow-x: hidden;
+      }
+
+      /* Background tĩnh mờ ảo */
+      #main-bg-wrapper {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        opacity: 0.2; /* Đã cập nhật thành 0.2 cho background trong hơn */
+        background-image: url("https://images.unsplash.com/photo-1541829070757-22047392762e?q=80&w=2000");
+        transition: background-image 0.8s ease-in-out, opacity 0.8s ease;
+      }
+
+      .nav-btn.active {
+        background-color: #2563eb;
+        color: white;
+        border-color: #3b82f6;
+        box-shadow: 0 0 15px rgba(37, 99, 235, 0.3);
+      }
+      .view-section {
+        display: none;
+      }
+      .view-section.active {
+        display: block;
+        animation: fadeIn 0.5s ease-out;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(15px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+      }
+
+      /* Option Quiz Sáng màu */
+      .quiz-option {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: rgba(241, 245, 249, 0.8);
+        border: 1px solid rgba(203, 213, 225, 1);
+        padding: 16px 20px;
+        border-radius: 12px;
+        color: #334155;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.2s;
+        cursor: pointer;
+      }
+      .quiz-option:hover {
+        background: rgba(59, 130, 246, 0.05);
+        border-color: rgba(59, 130, 246, 0.5);
+        color: #1e40af;
+        transform: translateX(5px);
+      }
+
+      /* --- GAME CSS TRÍCH XUẤT VÀ TỐI ƯU --- */
+      #game-wrapper {
+        cursor: none; /* Chỉ ẩn trỏ chuột trong khu vực game */
+      }
+      #game-container {
+        position: relative;
+        width: 100%;
+        max-width: 500px;
+        aspect-ratio: 1 / 1;
+        margin: 0 auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        background-color: #fff0f5;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        touch-action: none; /* Quan trọng cho mobile */
+        border: 4px solid #fbcfe8;
+      }
+      .cat-layer {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        opacity: 0;
+        pointer-events: none;
+        transition: transform 0.1s;
+      }
+      .cat-layer.active {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      #cat-bite.zoomed-bite {
+        transform-origin: center !important;
+        transform: scale(3.5) translate(20%, 30%) !important;
+        transition: transform 0.05s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+        z-index: 150;
+      }
+      .fur-particle {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(0.5px);
+        pointer-events: none;
+        z-index: 110;
+        opacity: 0.85;
+        animation: fallFur var(--fall-duration, 2s) ease-in-out forwards;
+      }
+      @keyframes fallFur {
+        0% {
+          transform: translate(0, 0) rotate(var(--r0));
+          opacity: 0.85;
+        }
+        33% {
+          transform: translate(var(--x1), 60px) rotate(var(--r1));
+        }
+        66% {
+          transform: translate(var(--x2), 130px) rotate(var(--r2));
+        }
+        100% {
+          transform: translate(var(--x3), 220px) rotate(var(--r3)) scale(0.6);
+          opacity: 0;
+        }
+      }
+      .shake {
+        animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+      }
+      @keyframes shake {
+        10%,
+        90% {
+          transform: translate3d(-5px, 0, 0);
+        }
+        20%,
+        80% {
+          transform: translate3d(5px, 0, 0);
+        }
+        30%,
+        50%,
+        70% {
+          transform: translate3d(-10px, 0, 0);
+        }
+        40%,
+        60% {
+          transform: translate3d(10px, 0, 0);
+        }
+      }
+      #comb-cursor {
+        position: fixed;
+        width: 150px;
+        pointer-events: none;
+        z-index: 9999;
+        transform-origin: center;
+        transition: transform 0.05s;
+        display: none; /* Mặc định ẩn, chỉ hiện ở view game */
+      }
+      .brushing {
+        transform: rotate(-15deg) scale(0.9);
+      }
+      #game-over-screen {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(34, 34, 34, 0.85);
+        color: white;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 300;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="main-bg-wrapper"></div>
+
+    <div
+      id="welcome-modal"
+      class="fixed inset-0 z-[10000] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4 transition-opacity duration-300"
+    >
+      <div
+        class="bg-white p-8 md:p-10 rounded-[2rem] shadow-2xl max-w-lg w-full relative text-center border border-blue-100"
+      >
+        <div
+          class="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner"
+        >
+          <img
+            src="https://images.ctfassets.net/8bbwomjfix8m/55AePSl50ZnwVBce2lROSW/ff063dcfbec1eb176c59e2179eef57e2/idp-logo.svg"
+            alt="IDP Logo"
+            class="w-12 h-12"
+          />
+        </div>
+        <h2 class="text-2xl font-black text-slate-900 mb-4 tracking-tight">
+          Xin chào, mình là Khôi 👋
+        </h2>
+        <p class="text-sm text-slate-600 leading-relaxed mb-6">
+          Khôi hiện tại đang làm tư vấn du học tại <b>IDP</b>, cũng vừa tìm tòi
+          học lập trình nên thử sức lập trình website này bằng AI với mục đích
+          cung cấp thông tin du học trực quan cho phụ huynh và học sinh của
+          Khôi.
+        </p>
+        <p class="text-sm text-slate-600 leading-relaxed mb-8">
+          Mong mọi người đón nhận vui vẻ. Khôi rất vui khi nhận được góp ý nếu
+          có thông tin sai hoặc ý tưởng để cải thiện website này!
+        </p>
+        <button
+          onclick="closeWelcomeAndStart()"
+          class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-blue-500/30 flex justify-center items-center gap-2 text-lg"
+        >
+          <i data-lucide="gamepad-2" class="w-6 h-6"></i> Bắt đầu trải nghiệm
+        </button>
+      </div>
+    </div>
+
+    <div
+      id="contact-modal"
+      class="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center p-4 transition-opacity duration-300"
+    >
+      <div
+        class="bg-white border border-slate-200 p-8 rounded-2xl shadow-2xl max-w-md w-full relative"
+      >
+        <button
+          onclick="closeContactModal()"
+          class="absolute top-4 right-4 text-slate-400 hover:text-slate-800 transition-colors"
+        >
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+        <h2 class="text-xl font-black text-slate-900 mb-2">
+          Gửi Yêu Cầu Tư Vấn 🚀
+        </h2>
+        <p class="text-sm text-slate-500 mb-6">
+          Bạn hãy để lại thông tin, email sẽ được gửi trực tiếp đến Khôi để hỗ
+          trợ bạn sớm nhất nhé.
+        </p>
+        <form
+          id="contact-form"
+          onsubmit="sendEmailContact(event)"
+          class="space-y-4"
+        >
+          <input
+            type="text"
+            id="contact-name"
+            required
+            placeholder="Tên của bạn"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white"
+          />
+          <input
+            type="text"
+            id="contact-phone"
+            required
+            placeholder="Số điện thoại"
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white"
+          />
+          <textarea
+            id="contact-note"
+            rows="3"
+            placeholder="Ghi chú (Tùy chọn)..."
+            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3 text-sm text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white custom-scrollbar"
+          ></textarea>
+
+          <button
+            type="submit"
+            class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors shadow-lg flex justify-center items-center gap-2"
+          >
+            <i data-lucide="send" class="w-4 h-4"></i> Gửi qua Email
+          </button>
+
+          <div class="relative mt-1">
+            <button
+              type="button"
+              onclick="copyPhone()"
+              class="w-full bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 font-bold py-3 rounded-xl transition-colors shadow-sm flex justify-center items-center gap-2"
+            >
+              <i data-lucide="copy" class="w-4 h-4"></i> Copy SĐT / Zalo: +84
+              909772062
+            </button>
+            <span
+              id="copy-tooltip"
+              class="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white text-xs py-1.5 px-3 rounded-lg opacity-0 transition-opacity duration-300 pointer-events-none whitespace-nowrap shadow-lg"
+              >Đã copy số điện thoại!</span
+            >
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <nav
+      class="sticky top-0 z-[50] bg-white/90 backdrop-blur-md border-b border-slate-200 p-4 shadow-sm"
+    >
+      <div
+        class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4"
+      >
+        <div class="flex items-center gap-4">
+          <img
+            src="https://images.ctfassets.net/8bbwomjfix8m/55AePSl50ZnwVBce2lROSW/ff063dcfbec1eb176c59e2179eef57e2/idp-logo.svg"
+            alt="IDP Logo"
+            class="h-10"
+          />
+          <div class="h-8 w-px bg-slate-300"></div>
+          <div>
+            <h1
+              class="text-lg font-black tracking-tight leading-none text-slate-900"
+            >
+              CHUYÊN GIA TƯ VẤN DU HỌC
+            </h1>
+            <p
+              class="text-[10px] text-blue-600 uppercase font-bold tracking-widest"
+            >
+              30 NĂM DẪN ĐƯỜNG - DU HỌC ĐÚNG HƯỚNG
+            </p>
+          </div>
+        </div>
+
+        <div
+          id="nav-menu-container"
+          class="opacity-0 pointer-events-none transition-opacity duration-1000 flex flex-wrap justify-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner gap-1"
+        >
+          <button
+            onclick="switchView('game')"
+            id="btn-game"
+            class="nav-btn active text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+          >
+            <i data-lucide="gamepad-2" class="w-4 h-4"></i> Giải Trí
+          </button>
+          <button
+            onclick="switchView('info')"
+            id="btn-info"
+            class="nav-btn text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+          >
+            <i data-lucide="library" class="w-4 h-4"></i> Thư viện
+          </button>
+          <button
+            onclick="switchView('saving')"
+            id="btn-saving"
+            class="nav-btn text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+          >
+            <i data-lucide="piggy-bank" class="w-4 h-4"></i> Du học Tiết kiệm
+          </button>
+          <button
+            onclick="switchView('quiz')"
+            id="btn-quiz"
+            class="nav-btn text-slate-600 hover:text-slate-900 px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+          >
+            <i data-lucide="compass" class="w-4 h-4"></i> Định hướng
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <section
+      id="view-game"
+      class="view-section active flex-1 p-4 lg:p-8 w-full custom-scrollbar overflow-y-auto"
+    >
+      <div class="max-w-3xl mx-auto">
+        <div class="text-center mb-8">
+          <h2
+            class="text-3xl md:text-5xl font-black tracking-tight mb-4 bg-gradient-to-r from-pink-500 to-orange-400 bg-clip-text text-transparent uppercase"
+          >
+            Chải Lông Bé Chuối
+          </h2>
+          <p class="text-slate-600 text-sm font-medium">
+            Vuốt / Di chuyển chuột để chải lông.
+            <b class="text-red-500">DỪNG LẠI</b> ngay khi Chuối quay mặt lại
+            nhìn bạn nhé!
+          </p>
+          <div
+            class="mt-4 inline-block bg-white px-6 py-2 rounded-full border border-pink-200 shadow-sm"
+          >
+            <span class="text-lg font-bold text-slate-700"
+              >Điểm:
+              <span id="score" class="text-pink-600 text-2xl">0</span></span
+            >
+          </div>
+        </div>
+
+        <div id="game-wrapper" class="relative">
+          <div id="game-container">
+            <img
+              id="cat-idle"
+              class="cat-layer active"
+              src="cat_idle.png"
+              alt="Mèo đứng"
+              draggable="false"
+            />
+            <img
+              id="cat-look"
+              class="cat-layer"
+              src="cat_look.png"
+              alt="Mèo nhìn"
+              draggable="false"
+            />
+            <img
+              id="cat-bite"
+              class="cat-layer"
+              src="cat_bite.png"
+              alt="Mèo cắn"
+              draggable="false"
+            />
+
+            <div id="game-over-screen">
+              <h1 class="text-4xl font-black text-red-500 mb-2">
+                BẠN ĐÃ BỊ CẮN!
+              </h1>
+              <p class="text-xl mb-6">
+                Tổng điểm:
+                <span id="final-score" class="font-bold text-yellow-400"
+                  >0</span
+                >
+              </p>
+              <button
+                onclick="resetGame()"
+                class="bg-amber-500 hover:bg-amber-400 text-white font-bold py-3 px-8 rounded-xl transition-colors"
+              >
+                Chơi Lại
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="mt-12 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden"
+        >
+          <div class="absolute top-0 right-0 p-4 opacity-5">
+            <i data-lucide="info" class="w-24 h-24 text-blue-600"></i>
+          </div>
+          <h4
+            class="font-black text-slate-800 flex items-center gap-2 mb-3 relative z-10"
+          >
+            <i data-lucide="cat" class="w-5 h-5 text-amber-500"></i> Nguồn gốc
+            Mini-game
+          </h4>
+          <p class="text-sm text-slate-600 leading-relaxed relative z-10">
+            Game được lấy ý tưởng, sự yêu thích động vật và cách chơi game theo
+            game <b>brush jjaemu</b> của tác giả <b>artbyeori (@artbyeori)</b>.
+          </p>
+          <p class="text-sm text-slate-600 leading-relaxed mt-2 relative z-10">
+            Lần này, thay vì thuê chải lông cho chú mèo Jiaemu, thì các bạn sẽ
+            được chải lông cho chú mèo tên <b>Chuối</b>. Chuối đã từng là một
+            "chú bảo vệ" 4 chân vui tính tại <b>IDP HCM3 (Quận 7)</b>, hỗ trợ
+            tinh thần rất nhiều cho các bạn tư vấn du học và thí sinh thi IELTS.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section
+      id="view-info"
+      class="view-section flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full custom-scrollbar overflow-y-auto"
+    >
+      <div class="max-w-4xl mx-auto mb-10 text-center">
+        <h2
+          class="text-3xl md:text-5xl font-black tracking-tight mb-4 bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent uppercase"
+        >
+          Thư Viện Thông Tin
+        </h2>
+        <p class="text-slate-600 text-sm italic font-light">
+          Cẩm nang tổng quan về chi phí, học bổng, cơ hội việc làm và quy trình
+          chuẩn bị hồ sơ.
+        </p>
+      </div>
+
+      <div
+        class="flex flex-wrap justify-center bg-slate-100 p-1 rounded-xl border border-slate-200 shadow-inner w-fit mx-auto mb-8"
+      >
+        <button
+          onclick="setCountry('us')"
+          id="btn-us"
+          class="country-btn active px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-600"
+        >
+          HOA KỲ
+        </button>
+        <button
+          onclick="setCountry('canada')"
+          id="btn-canada"
+          class="country-btn px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-600"
+        >
+          CANADA
+        </button>
+        <button
+          onclick="setCountry('uk')"
+          id="btn-uk"
+          class="country-btn px-4 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-600"
+        >
+          UNITED KINGDOM
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
+        <div class="space-y-8">
+          <div
+            class="bg-emerald-50 border border-emerald-100 p-8 rounded-[2rem] shadow-lg relative overflow-hidden transition-colors"
+          >
+            <div class="absolute top-0 right-0 p-4 opacity-10">
+              <i data-lucide="user" class="w-24 h-24 text-emerald-600"></i>
+            </div>
+            <h3
+              class="text-emerald-700 font-black text-xl mb-6 flex items-center gap-3"
+            >
+              <i data-lucide="smile" class="w-7 h-7"></i> Tư Vấn Khôi Đinh
+            </h3>
+            <div
+              class="space-y-4 text-sm text-slate-700 leading-relaxed relative z-10"
+            >
+              <p>
+                <b>Chuyên viên tư vấn:</b> IDP các nước Anh, Mỹ, Canada, Úc,
+                Pháp, Hà Lan... 🌍
+              </p>
+              <p>
+                <b>Kinh nghiệm:</b> Gần 7 năm làm việc trong lĩnh vực giáo dục.
+                🎓
+              </p>
+              <p>
+                <b>Sở thích:</b> Đam mê lập trình bằng AI - đang thử nghiệm làm
+                web 🤓🤖
+              </p>
+              <div class="pt-4 border-t border-emerald-200 space-y-2 mt-4">
+                <p class="flex items-center gap-3 text-emerald-700 font-bold">
+                  <i data-lucide="phone" class="w-4 h-4"></i> T: +84 909772062
+                </p>
+                <p class="flex items-center gap-3 text-emerald-700 font-bold">
+                  <i data-lucide="mail" class="w-4 h-4"></i> E:
+                  khoi.dinh@idp.com
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="bg-blue-50 border border-blue-100 p-8 rounded-[2rem] shadow-lg relative overflow-hidden"
+          >
+            <div class="absolute top-0 right-0 p-4 opacity-10">
+              <i data-lucide="shield-check" class="w-24 h-24 text-blue-600"></i>
+            </div>
+            <h3
+              class="text-blue-700 font-black text-xl mb-6 flex items-center gap-3"
+            >
+              <i data-lucide="globe" class="w-7 h-7"></i> VỀ IDP EDUCATION
+            </h3>
+            <div class="space-y-5 text-sm text-slate-700 leading-relaxed">
+              <ul class="space-y-4">
+                <li class="flex items-start gap-4">
+                  <span
+                    class="bg-blue-100 p-2 rounded-lg text-blue-700 font-bold"
+                    >55+</span
+                  ><span>Năm kinh nghiệm tư vấn toàn cầu (30 năm tại VN).</span>
+                </li>
+                <li class="flex items-start gap-4">
+                  <span
+                    class="bg-blue-100 p-2 rounded-lg text-blue-700 font-bold"
+                    >>98%</span
+                  ><span>Tỉ lệ đậu Visa du học các nước.</span>
+                </li>
+                <li class="flex items-start gap-4">
+                  <span
+                    class="bg-blue-100 p-2 rounded-lg text-blue-700 font-bold"
+                    >1000+</span
+                  ><span>Đối tác cơ sở giáo dục uy tín toàn cầu.</span>
+                </li>
+              </ul>
+              <div class="pt-4 border-t border-blue-200 space-y-2">
+                <p class="text-xs italic text-blue-700 flex items-center gap-2">
+                  <i data-lucide="check" class="w-3 h-3"></i> Miễn phí tư vấn &
+                  làm hồ sơ.
+                </p>
+                <p class="text-xs italic text-blue-700 flex items-center gap-2">
+                  <i data-lucide="check" class="w-3 h-3"></i> Tự hào đồng sáng
+                  lập kỳ thi IELTS.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="bg-amber-50 border border-amber-100 p-8 rounded-[2rem] shadow-lg"
+          >
+            <h3
+              class="text-amber-600 font-black text-xl mb-6 flex items-center gap-3"
+            >
+              <i data-lucide="sparkles" class="w-7 h-7"></i> ĐIỀU KIỆN HỌC BỔNG
+            </h3>
+            <div class="space-y-6">
+              <div>
+                <p
+                  class="text-[10px] font-black text-amber-600 uppercase mb-3 tracking-widest border-b border-amber-200 pb-1"
+                >
+                  ĐIỀU KIỆN TIÊN QUYẾT
+                </p>
+                <ul class="text-xs text-slate-700 space-y-3">
+                  <li class="flex gap-3">
+                    <i
+                      data-lucide="check"
+                      class="w-4 h-4 text-amber-500 shrink-0"
+                    ></i>
+                    <span
+                      ><b>Học lực (GPA):</b> Tối thiểu 8.0/10 trở lên (tương
+                      đương 3.0/4.0).</span
+                    >
+                  </li>
+                  <li class="flex gap-3">
+                    <i
+                      data-lucide="check"
+                      class="w-4 h-4 text-amber-500 shrink-0"
+                    ></i>
+                    <span
+                      ><b>Ngoại ngữ:</b> IELTS 6.0 - 8.0 (Tùy yêu cầu từng
+                      trường).</span
+                    >
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <p
+                  class="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest border-b border-slate-200 pb-1"
+                >
+                  TIÊU CHÍ CỘNG ĐIỂM
+                </p>
+                <div class="grid grid-cols-1 gap-2">
+                  <div
+                    onclick="openContactModal('Tư vấn lộ trình thi SAT, chủ đề hướng dẫn viết luận và các hoạt động ngoại khóa nên tham gia')"
+                    class="text-[11px] bg-white p-2.5 rounded-lg border border-slate-200 flex items-center gap-2 text-slate-700 cursor-pointer hover:border-amber-400 hover:bg-amber-50 transition-all group"
+                  >
+                    <i
+                      data-lucide="plus"
+                      class="w-3 h-3 text-amber-500 group-hover:scale-125 transition-transform"
+                    ></i>
+                    Bài thi chuẩn hóa (SAT, ACT, GMAT) cao.
+                  </div>
+                  <div
+                    onclick="openContactModal('Tư vấn lộ trình thi SAT, chủ đề hướng dẫn viết luận và các hoạt động ngoại khóa nên tham gia')"
+                    class="text-[11px] bg-white p-2.5 rounded-lg border border-slate-200 flex items-center gap-2 text-slate-700 cursor-pointer hover:border-amber-400 hover:bg-amber-50 transition-all group"
+                  >
+                    <i
+                      data-lucide="plus"
+                      class="w-3 h-3 text-amber-500 group-hover:scale-125 transition-transform"
+                    ></i>
+                    Bài luận cá nhân (Personal Statement) xuất sắc.
+                  </div>
+                  <div
+                    onclick="openContactModal('Tư vấn lộ trình thi SAT, chủ đề hướng dẫn viết luận và các hoạt động ngoại khóa nên tham gia')"
+                    class="text-[11px] bg-white p-2.5 rounded-lg border border-slate-200 flex items-center gap-2 text-slate-700 cursor-pointer hover:border-amber-400 hover:bg-amber-50 transition-all group"
+                  >
+                    <i
+                      data-lucide="plus"
+                      class="w-3 h-3 text-amber-500 group-hover:scale-125 transition-transform"
+                    ></i>
+                    Hoạt động ngoại khóa, Khen thưởng, Thư giới thiệu.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-8 lg:col-span-2">
+          <div
+            class="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-100"
+          >
+            <h3
+              class="text-slate-900 font-black text-2xl mb-8 flex items-center gap-3 uppercase"
+            >
+              <i data-lucide="wallet" class="w-6 h-6 text-emerald-500"></i> Tổng
+              quan Chi phí 3 Nước
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div
+                class="bg-slate-50 p-5 rounded-2xl border-t-4 border-blue-500"
+              >
+                <h4 class="font-black text-blue-600 mb-4 text-lg">
+                  HOA KỲ (USD)
+                </h4>
+                <ul class="text-[11px] text-slate-600 space-y-3">
+                  <li
+                    class="flex justify-between border-b border-slate-200 pb-1"
+                  >
+                    <span>Trung học:</span>
+                    <b class="text-slate-800">$25k - $50k</b>
+                  </li>
+                  <li
+                    class="flex justify-between border-b border-slate-200 pb-1"
+                  >
+                    <span>CĐ Cộng đồng:</span>
+                    <b class="text-slate-800">$8k - $15k</b>
+                  </li>
+                  <li
+                    class="flex justify-between border-b border-slate-200 pb-1"
+                  >
+                    <span>Đại học (4 năm):</span>
+                    <b class="text-slate-800">$20k - $55k</b>
+                  </li>
+                  <li
+                    class="flex justify-between border-b border-slate-200 pb-1"
+                  >
+                    <span>Thạc sĩ (1-2 năm):</span>
+                    <b class="text-slate-800">$20k - $45k</b>
+                  </li>
+                  <li class="flex justify-between text-slate-500 mt-2 pt-2">
+                    <span>Sinh hoạt phí:</span> <b>$12k - $20k</b>
+                  </li>
+                </ul>
+              </div>
+              <div
+                class="bg-slate-50 p-5 rounded-2xl border-t-4 border-red-500"
+              >
+                <h4 class="font-black text-red-600 mb-4 text-lg">
+                  CANADA (CAD)
+                </h4>
+                <ul class="text-[11px] text-slate-600 space-y-3">
+                  <li
+                    class="flex justify-between border-b border-slate-200 pb-1"
+                  >
+                    <span>Trung học:</span>
+                    <b class="text-slate-800">$12k - $18k</b>
+                  </li>
+                  <li
+                    class="flex justify-between border-b border-slate-200 pb-1"
+                  >
+                    <span>Cao đẳng (2-3 năm):</span>
+                    <b class="text-slate-800">$14k - $22k</b>
+                  </li>
+                  <li
+                    class="flex justify-between border-b border-slate-200 pb-1"
+                  >
+                    <span>Đại học (4 năm):</span>
+                    <b class="text-slate-800">$20k - $45k</b>
+                  </li>
+                  <li
+                    class="flex justify-between border-b border-slate-200 pb-1"
+                  >
+                    <span>Thạc sĩ (1-2 năm):</span>
+                    <b class="text-slate-800">$18k - $35k</b>
+                  </li>
+                  <li class="flex justify-between text-slate-500 mt-2 pt-2">
+                    <span>Sinh hoạt phí:</span> <b>$12k - $23k</b>
+                  </li>
+                </ul>
+              </div>
+              <div
+                class="bg-slate-50 p-5 rounded-2xl border-t-4 border-indigo-500"
+              >
+                <h4 class="font-black text-indigo-600 mb-4 text-lg">
+                  UK (GBP)
+                </h4>
+                <ul class="text-[11px] text-slate-600 space-y-3">
+                  <li
+                    class="flex justify-between border-b border-slate-200 pb-1"
+                  >
+                    <span>A-Level/Dự bị:</span>
+                    <b class="text-slate-800">£12k - £35k</b>
+                  </li>
+                  <li
+                    class="flex justify-between border-b border-slate-200 pb-1"
+                  >
+                    <span>Đại học (3 năm):</span>
+                    <b class="text-slate-800">£15k - £30k</b>
+                  </li>
+                  <li
+                    class="flex justify-between border-b border-slate-200 pb-1"
+                  >
+                    <span>Thạc sĩ (1 năm):</span>
+                    <b class="text-slate-800">£18k - £35k</b>
+                  </li>
+                  <li
+                    class="flex justify-between text-slate-500 mt-2 pt-2 mt-auto"
+                  >
+                    <span>Sinh hoạt phí:</span> <b>£10k - £15k</b>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-100 relative overflow-hidden"
+          >
+            <div class="absolute -right-4 -bottom-4 opacity-5 rotate-12">
+              <i data-lucide="briefcase" class="w-48 h-48"></i>
+            </div>
+            <h3
+              class="text-slate-900 font-black text-2xl mb-8 flex items-center gap-3 uppercase relative z-10"
+            >
+              <i
+                data-lucide="graduation-cap"
+                class="w-6 h-6 text-amber-500"
+              ></i>
+              Cơ hội Việc làm & Định cư
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+              <div
+                class="space-y-3 bg-slate-50 p-5 rounded-xl border border-slate-200"
+              >
+                <h4 class="text-blue-600 font-black text-sm uppercase">
+                  HOA KỲ: OPT & CPT
+                </h4>
+                <p class="text-[11px] text-slate-500 italic mb-2">
+                  Thực tập & Làm việc
+                </p>
+                <ul
+                  class="text-[11px] text-slate-600 space-y-2 list-disc list-inside"
+                >
+                  <li>
+                    <b>OPT (Sau tốt nghiệp):</b> Thời hạn chuẩn 12 tháng. Khối
+                    ngành STEM được gia hạn thêm 24 tháng (Tổng 36 tháng).
+                  </li>
+                  <li>
+                    <b>CPT (Trong khi học):</b> Cho phép thực tập hưởng lương
+                    đúng chuyên ngành ngay khi còn đi học.
+                  </li>
+                </ul>
+              </div>
+              <div
+                class="space-y-3 bg-slate-50 p-5 rounded-xl border border-slate-200"
+              >
+                <h4 class="text-red-600 font-black text-sm uppercase">
+                  CANADA: PGWP
+                </h4>
+                <p class="text-[11px] text-slate-500 italic mb-2">
+                  Post-Graduation Work Permit
+                </p>
+                <ul
+                  class="text-[11px] text-slate-600 space-y-2 list-disc list-inside"
+                >
+                  <li>
+                    Làm việc từ <b>1 đến 3 năm</b> (Chương trình học >= 2 năm
+                    thường nhận PGWP 3 năm).
+                  </li>
+                  <li>
+                    Kinh nghiệm làm việc, tiếng pháp là điểm cộng lớn xin Thường
+                    trú nhân (PR) qua Express Entry hoặc PNP.
+                  </li>
+                </ul>
+              </div>
+              <div
+                class="space-y-3 bg-slate-50 p-5 rounded-xl border border-slate-200"
+              >
+                <h4 class="text-indigo-600 font-black text-sm uppercase">
+                  UK: Graduate Route Visa
+                </h4>
+                <p class="text-[11px] text-slate-500 italic mb-2">
+                  Graduate Route Visa
+                </p>
+                <ul
+                  class="text-[11px] text-slate-600 space-y-2 list-disc list-inside"
+                >
+                  <li>
+                    Ở lại tìm việc <b>18 tháng</b> đối với Cử nhân & Thạc sĩ.
+                  </li>
+                  <li>Ở lại <b>3 năm</b> đối với bằng Tiến sĩ.</li>
+                  <li>
+                    Không yêu cầu phải có công ty bảo lãnh (Sponsor) ngay lập
+                    tức.
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-100 relative overflow-hidden"
+          >
+            <div class="absolute -right-4 -bottom-4 opacity-5 rotate-12">
+              <i data-lucide="life-buoy" class="w-48 h-48"></i>
+            </div>
+            <h3
+              class="text-slate-900 font-black text-2xl mb-8 flex items-center gap-3 uppercase relative z-10"
+            >
+              <i
+                data-lucide="heart-handshake"
+                class="w-6 h-6 text-pink-500"
+              ></i>
+              Dịch vụ Hỗ trợ Toàn diện từ IDP
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 relative z-10">
+              <div
+                class="flex gap-4 items-start bg-slate-50 p-4 rounded-xl border border-slate-200"
+              >
+                <div class="bg-pink-100 p-2 rounded-lg shrink-0">
+                  <i data-lucide="home" class="w-5 h-5 text-pink-600"></i>
+                </div>
+                <div>
+                  <h4 class="text-pink-600 font-bold text-sm mb-1">
+                    Tìm kiếm Chỗ ở
+                  </h4>
+                  <p class="text-[11px] text-slate-600 leading-relaxed">
+                    Hỗ trợ tìm Ký túc xá, Homestay an toàn qua đối tác lưu trú
+                    uy tín toàn cầu.
+                  </p>
+                </div>
+              </div>
+              <div
+                class="flex gap-4 items-start bg-slate-50 p-4 rounded-xl border border-slate-200"
+              >
+                <div class="bg-sky-100 p-2 rounded-lg shrink-0">
+                  <i data-lucide="shield-plus" class="w-5 h-5 text-sky-600"></i>
+                </div>
+                <div>
+                  <h4 class="text-sky-600 font-bold text-sm mb-1">
+                    Bảo hiểm Y tế
+                  </h4>
+                  <p class="text-[11px] text-slate-600 leading-relaxed">
+                    Tư vấn mua bảo hiểm sức khỏe bắt buộc với mức giá ưu đãi
+                    dành riêng cho học sinh IDP.
+                  </p>
+                </div>
+              </div>
+              <div
+                class="flex gap-4 items-start bg-slate-50 p-4 rounded-xl border border-slate-200"
+              >
+                <div class="bg-amber-100 p-2 rounded-lg shrink-0">
+                  <i
+                    data-lucide="credit-card"
+                    class="w-5 h-5 text-amber-600"
+                  ></i>
+                </div>
+                <div>
+                  <h4 class="text-amber-600 font-bold text-sm mb-1">
+                    Tài chính & Chuyển tiền
+                  </h4>
+                  <p class="text-[11px] text-slate-600 leading-relaxed">
+                    Hướng dẫn mở tài khoản ngân hàng và đóng học phí an toàn qua
+                    nền tảng Flywire/Convera.
+                  </p>
+                </div>
+              </div>
+              <div
+                class="flex gap-4 items-start bg-slate-50 p-4 rounded-xl border border-slate-200"
+              >
+                <div class="bg-violet-100 p-2 rounded-lg shrink-0">
+                  <i
+                    data-lucide="plane-takeoff"
+                    class="w-5 h-5 text-violet-600"
+                  ></i>
+                </div>
+                <div>
+                  <h4 class="text-violet-600 font-bold text-sm mb-1">
+                    Hướng dẫn trước bay
+                  </h4>
+                  <p class="text-[11px] text-slate-600 leading-relaxed">
+                    Trang bị kiến thức văn hóa, luật pháp bản địa, chuẩn bị Sim
+                    và xử lý tình huống khẩn cấp.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        class="bg-white border border-slate-200 p-8 rounded-[2rem] shadow-lg mb-16"
+      >
+        <h3
+          class="text-slate-900 font-black text-2xl mb-10 flex items-center gap-3 uppercase"
+        >
+          <i data-lucide="calendar-clock" class="w-7 h-7 text-blue-500"></i> Lộ
+          Trình Chuẩn Bị Hồ Sơ Du Học
+        </h3>
+
+        <div class="mb-10">
+          <h4
+            class="text-lg font-bold text-amber-600 mb-5 uppercase tracking-widest border-b border-slate-200 pb-2 flex items-center gap-2"
+          >
+            <i data-lucide="leaf" class="w-5 h-5"></i> Kỳ Nhập Học Tháng 9 (Mùa
+            Thu)
+          </h4>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div
+              class="p-5 bg-slate-50 rounded-2xl border-t-2 border-blue-500 shadow-sm relative"
+            >
+              <div
+                class="absolute -top-3 left-4 bg-blue-500 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase"
+              >
+                Trước 1-2 năm
+              </div>
+              <h5 class="text-sm font-bold text-slate-900 mb-2 mt-2">
+                CHUẨN BỊ
+              </h5>
+              <p class="text-[11px] text-slate-600 leading-relaxed">
+                Bắt đầu trước tháng 9 của năm lớp 12. Duy trì GPA, nghiên cứu
+                trường và luyện thi IELTS/SAT.
+              </p>
+            </div>
+            <div
+              class="p-5 bg-slate-50 rounded-2xl border-t-2 border-amber-500 shadow-sm relative"
+            >
+              <div
+                class="absolute -top-3 left-4 bg-amber-500 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase"
+              >
+                Tháng 9 - Tháng 3
+              </div>
+              <h5 class="text-sm font-bold text-slate-900 mb-2 mt-2">
+                NỘP ĐƠN
+              </h5>
+              <p class="text-[11px] text-slate-600 leading-relaxed">
+                Viết bài luận cá nhân, xin thư giới thiệu. Gửi đơn đăng ký tới
+                trường. Chờ nhận Offer và kết quả Học bổng.
+              </p>
+            </div>
+
+            <div
+              onclick="openContactModal('Đánh giá & tư vấn hồ sơ chứng minh tài chính và check list xin visa')"
+              class="p-5 bg-slate-50 rounded-2xl border-t-2 border-emerald-500 shadow-sm relative cursor-pointer hover:bg-emerald-50 hover:-translate-y-1 hover:shadow-md transition-all group"
+            >
+              <div
+                class="absolute -top-3 left-4 bg-emerald-500 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase"
+              >
+                Tháng 3 - Tháng 6
+              </div>
+              <h5
+                class="text-sm font-bold text-slate-900 mb-2 mt-2 group-hover:text-emerald-700 transition-colors"
+              >
+                XIN VISA
+                <i
+                  data-lucide="arrow-up-right"
+                  class="inline w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                ></i>
+              </h5>
+              <p class="text-[11px] text-slate-600 leading-relaxed">
+                Đóng cọc học phí. Chuẩn bị hồ sơ chứng minh tài chính, khám sức
+                khỏe và nộp xin Visa. Luyện phỏng vấn.
+              </p>
+            </div>
+
+            <div
+              class="p-5 bg-blue-50 rounded-2xl border-t-2 border-purple-500 shadow-sm relative"
+            >
+              <div
+                class="absolute -top-3 left-4 bg-purple-500 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase"
+              >
+                Tháng 7 - Tháng 8
+              </div>
+              <h5 class="text-sm font-bold text-slate-900 mb-2 mt-2">
+                NHẬP HỌC
+              </h5>
+              <p class="text-[11px] text-slate-600 leading-relaxed">
+                Tìm nhà ở/KTX. Mua vé máy bay. Tham gia hướng dẫn trước bay
+                (Pre-departure) của IDP và lên đường nhập học.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4
+            class="text-lg font-bold text-blue-600 mb-5 uppercase tracking-widest border-b border-slate-200 pb-2 flex items-center gap-2"
+          >
+            <i data-lucide="snowflake" class="w-5 h-5"></i> Kỳ Nhập Học Tháng 1
+            (Mùa Xuân)
+          </h4>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div
+              class="p-5 bg-slate-50 rounded-2xl border-t-2 border-blue-500 shadow-sm relative"
+            >
+              <div
+                class="absolute -top-3 left-4 bg-blue-500 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase"
+              >
+                Đầu năm trước
+              </div>
+              <h5 class="text-sm font-bold text-slate-900 mb-2 mt-2">
+                CHUẨN BỊ
+              </h5>
+              <p class="text-[11px] text-slate-600 leading-relaxed">
+                Bắt đầu từ tháng 1-5 năm trước. Hoàn thiện các bài thi chuẩn
+                hóa, xác định trường mở kỳ tuyển sinh mùa Xuân.
+              </p>
+            </div>
+            <div
+              class="p-5 bg-slate-50 rounded-2xl border-t-2 border-amber-500 shadow-sm relative"
+            >
+              <div
+                class="absolute -top-3 left-4 bg-amber-500 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase"
+              >
+                Tháng 6 - Tháng 9
+              </div>
+              <h5 class="text-sm font-bold text-slate-900 mb-2 mt-2">
+                NỘP ĐƠN
+              </h5>
+              <p class="text-[11px] text-slate-600 leading-relaxed">
+                Nhiều trường đóng đơn kỳ này rất sớm. Nộp hồ sơ, bài luận và
+                giấy tờ cần thiết. Chờ nhận kết quả trúng tuyển.
+              </p>
+            </div>
+
+            <div
+              onclick="openContactModal('Đánh giá & tư vấn hồ sơ chứng minh tài chính và check list xin visa')"
+              class="p-5 bg-slate-50 rounded-2xl border-t-2 border-emerald-500 shadow-sm relative cursor-pointer hover:bg-emerald-50 hover:-translate-y-1 hover:shadow-md transition-all group"
+            >
+              <div
+                class="absolute -top-3 left-4 bg-emerald-500 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase"
+              >
+                Tháng 10 - Tháng 11
+              </div>
+              <h5
+                class="text-sm font-bold text-slate-900 mb-2 mt-2 group-hover:text-emerald-700 transition-colors"
+              >
+                XIN VISA
+                <i
+                  data-lucide="arrow-up-right"
+                  class="inline w-3 h-3 ml-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                ></i>
+              </h5>
+              <p class="text-[11px] text-slate-600 leading-relaxed">
+                Thời gian làm Visa kỳ này khá gấp rút. Cần hoàn tất thủ tục tài
+                chính và nộp Visa ngay khi có đủ giấy tờ nhập học.
+              </p>
+            </div>
+
+            <div
+              class="p-5 bg-blue-50 rounded-2xl border-t-2 border-purple-500 shadow-sm relative"
+            >
+              <div
+                class="absolute -top-3 left-4 bg-purple-500 text-white text-[9px] font-bold px-2 py-1 rounded-full uppercase"
+              >
+                Tháng 12
+              </div>
+              <h5 class="text-sm font-bold text-slate-900 mb-2 mt-2">
+                NHẬP HỌC
+              </h5>
+              <p class="text-[11px] text-slate-600 leading-relaxed">
+                Chuẩn bị hành trang kỹ (đặc biệt là áo ấm). Nhận Visa, mua vé
+                máy bay và bay sang trường cuối tháng 12 hoặc đầu tháng 1.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section
+      id="view-saving"
+      class="view-section flex-1 p-4 lg:p-8 max-w-7xl mx-auto w-full"
+    >
+      <div class="max-w-4xl mx-auto mb-10 text-center">
+        <h2
+          class="text-3xl md:text-5xl font-black tracking-tight mb-4 bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent uppercase"
+        >
+          Chiến Lược Du Học Tiết Kiệm
+        </h2>
+        <p class="text-slate-600 text-sm italic font-light">
+          Tối ưu hóa tài chính với lộ trình thông minh và học bổng khủng từ IDP.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div
+          class="relative group bg-white border border-slate-200 rounded-[2rem] p-8 shadow-xl overflow-hidden hover:border-blue-500/50 transition-colors"
+        >
+          <h3
+            class="text-2xl font-black text-blue-600 flex items-center gap-3 mb-6"
+          >
+            <i data-lucide="map-pin" class="w-6 h-6"></i> HOA KỲ (US)
+          </h3>
+          <ul class="space-y-4 text-sm text-slate-600">
+            <li class="flex gap-3">
+              <i
+                data-lucide="check-circle"
+                class="w-5 h-5 text-emerald-500 shrink-0"
+              ></i>
+              <div>
+                <b>Trung học Kép Washington:</b> Học 2 năm lấy 2 bằng. Học phí
+                CĐ chỉ $12k-$13k/năm. Ở KTX an toàn, tiết kiệm 1-2 năm học Đại
+                học và ra trường sớm.
+              </div>
+            </li>
+            <li class="flex gap-3">
+              <i
+                data-lucide="check-circle"
+                class="w-5 h-5 text-emerald-500 shrink-0"
+              ></i>
+              <div>
+                <b>Cao đẳng Cộng đồng:</b> Lộ trình 2+2 tiết kiệm. Cả sinh viên
+                CĐCĐ và TH kép đều có cơ hội nhận học bổng khi chuyển tiếp.
+              </div>
+            </li>
+            <li class="flex gap-3">
+              <i
+                data-lucide="check-circle"
+                class="w-5 h-5 text-emerald-500 shrink-0"
+              ></i>
+              <div>
+                <b>Săn Học Bổng 50-100%:</b> Qua hỗ trợ của IDP. Ưu đãi mức học
+                phí nội bang (in-state tuition) chỉ còn $13k-$15k/năm.
+              </div>
+            </li>
+          </ul>
+          <div
+            onclick="openContactModal('Du học Tiết kiệm - Hoa Kỳ')"
+            class="absolute inset-0 bg-white/95 backdrop-blur-sm flex items-center justify-center p-8 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 cursor-pointer"
+          >
+            <p
+              class="text-slate-900 text-lg font-bold text-center leading-relaxed"
+            >
+              Đăng ký tư vấn du học với
+              <span class="text-blue-600 text-xl block mt-1">Khôi tại IDP</span>
+              <span class="text-sm font-normal block mt-2 text-slate-500"
+                >để nhận thông tin học bổng. Click vào đây!</span
+              >
+            </p>
+          </div>
+        </div>
+
+        <div
+          class="relative group bg-white border border-slate-200 rounded-[2rem] p-8 shadow-xl overflow-hidden hover:border-red-500/50 transition-colors"
+        >
+          <h3
+            class="text-2xl font-black text-red-600 flex items-center gap-3 mb-6"
+          >
+            <i data-lucide="map-pin" class="w-6 h-6"></i> CANADA
+          </h3>
+          <ul class="space-y-4 text-sm text-slate-600">
+            <li class="flex gap-3">
+              <i
+                data-lucide="check-circle"
+                class="w-5 h-5 text-emerald-500 shrink-0"
+              ></i>
+              <div>
+                <b>Cao đẳng Nghề (Diploma):</b> Mức học phí cực tốt chỉ từ
+                $17k-$20k CAD/năm. Sinh viên còn có thể nhận học bổng lên tới
+                $7,000 CAD, tối ưu chi phí tối đa.
+              </div>
+            </li>
+            <li class="flex gap-3">
+              <i
+                data-lucide="check-circle"
+                class="w-5 h-5 text-emerald-500 shrink-0"
+              ></i>
+              <div>
+                <b>Đại học Top Đầu:</b> Chất lượng giáo dục chuẩn quốc tế với cơ
+                hội săn học bổng lên đến 100% cho học sinh có thành tích nổi
+                bật.
+              </div>
+            </li>
+          </ul>
+          <div
+            onclick="openContactModal('Du học Tiết kiệm - Canada')"
+            class="absolute inset-0 bg-white/95 backdrop-blur-sm flex items-center justify-center p-8 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 cursor-pointer"
+          >
+            <p
+              class="text-slate-900 text-lg font-bold text-center leading-relaxed"
+            >
+              Đăng ký tư vấn du học với
+              <span class="text-red-600 text-xl block mt-1">Khôi tại IDP</span>
+              <span class="text-sm font-normal block mt-2 text-slate-500"
+                >để nhận thông tin học bổng. Click vào đây!</span
+              >
+            </p>
+          </div>
+        </div>
+
+        <div
+          class="relative group bg-white border border-slate-200 rounded-[2rem] p-8 shadow-xl overflow-hidden hover:border-indigo-500/50 transition-colors"
+        >
+          <h3
+            class="text-2xl font-black text-indigo-600 flex items-center gap-3 mb-6"
+          >
+            <i data-lucide="map-pin" class="w-6 h-6"></i> UNITED KINGDOM
+          </h3>
+          <ul class="space-y-4 text-sm text-slate-600">
+            <li class="flex gap-3">
+              <i
+                data-lucide="check-circle"
+                class="w-5 h-5 text-emerald-500 shrink-0"
+              ></i>
+              <div>
+                <b>Phổ thông & A-Level:</b> Săn học bổng cấp 3 lên đến 100%.
+                Bằng A-Level tạo lợi thế cạnh tranh cực lớn nộp hồ sơ Đại học
+                toàn cầu.
+              </div>
+            </li>
+            <li class="flex gap-3">
+              <i
+                data-lucide="check-circle"
+                class="w-5 h-5 text-emerald-500 shrink-0"
+              ></i>
+              <div>
+                <b>Đại học:</b> Lộ trình ngắn chỉ mất 3 năm, kèm cơ hội nhận học
+                bổng lên tới 50%.
+              </div>
+            </li>
+            <li class="flex gap-3">
+              <i
+                data-lucide="check-circle"
+                class="w-5 h-5 text-emerald-500 shrink-0"
+              ></i>
+              <div>
+                <b>Thạc sĩ:</b> Học bổng đa dạng 50%-70%-100%. Lộ trình 1 năm
+                siêu tốc, tối ưu tổng chi phí dưới 500 triệu VNĐ/năm.
+              </div>
+            </li>
+          </ul>
+          <div
+            onclick="openContactModal('Du học Tiết kiệm - UK')"
+            class="absolute inset-0 bg-white/95 backdrop-blur-sm flex items-center justify-center p-8 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 cursor-pointer"
+          >
+            <p
+              class="text-slate-900 text-lg font-bold text-center leading-relaxed"
+            >
+              Đăng ký tư vấn du học với
+              <span class="text-indigo-600 text-xl block mt-1"
+                >Khôi tại IDP</span
+              >
+              <span class="text-sm font-normal block mt-2 text-slate-500"
+                >để nhận thông tin học bổng. Click vào đây!</span
+              >
+            </p>
+          </div>
+        </div>
+
+        <div
+          class="relative group bg-white border border-slate-200 rounded-[2rem] p-8 shadow-xl overflow-hidden hover:border-amber-500/50 transition-colors"
+        >
+          <h3
+            class="text-2xl font-black text-amber-500 flex items-center gap-3 mb-6"
+          >
+            <i data-lucide="home" class="w-6 h-6"></i> TÌM NHÀ AN TOÀN & GIÁ MỀM
+          </h3>
+          <ul class="space-y-4 text-sm text-slate-600">
+            <li class="flex gap-3">
+              <i
+                data-lucide="check-circle"
+                class="w-5 h-5 text-emerald-500 shrink-0"
+              ></i>
+              <div>
+                <b>Giá mềm hơn tự túc:</b> Những kênh tìm kiếm nội bộ giúp sinh
+                viên thuê nhà an toàn với chi phí hợp lý hơn nhiều so với tự tìm
+                bên ngoài.
+              </div>
+            </li>
+            <li class="flex gap-3">
+              <i
+                data-lucide="check-circle"
+                class="w-5 h-5 text-emerald-500 shrink-0"
+              ></i>
+              <div>
+                <b>Tránh lừa đảo (Scam):</b> IDP kết nối trực tiếp với các đơn
+                vị lưu trú sinh viên uy tín quốc tế, đảm bảo an toàn tài chính
+                tuyệt đối.
+              </div>
+            </li>
+          </ul>
+          <div
+            onclick="openContactModal('Hỗ trợ tìm kiếm nhà ở')"
+            class="absolute inset-0 bg-white/95 backdrop-blur-sm flex items-center justify-center p-8 opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 cursor-pointer"
+          >
+            <p
+              class="text-slate-900 text-lg font-bold text-center leading-relaxed"
+            >
+              Đăng ký tư vấn với
+              <span class="text-amber-500 text-xl block mt-1"
+                >Khôi tại IDP</span
+              >
+              <span class="text-sm font-normal block mt-2 text-slate-500"
+                >để được hỗ trợ tìm nhà an toàn. Click vào đây!</span
+              >
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section
+      id="view-quiz"
+      class="view-section flex-1 p-4 lg:p-8 max-w-4xl mx-auto w-full"
+    >
+      <div class="mb-10 text-center">
+        <h2
+          class="text-3xl md:text-5xl font-black tracking-tight mb-4 bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent uppercase"
+        >
+          Khám Phá Bản Thân
+        </h2>
+        <p class="text-slate-600 text-sm italic font-light">
+          Thực hiện bài test tính cách và kỹ năng để tìm ra ngành học và trường
+          Đại học lý tưởng nhất dành cho bạn.
+        </p>
+      </div>
+
+      <div
+        id="quiz-container"
+        class="bg-white border border-slate-200 rounded-[2rem] p-8 md:p-12 shadow-xl"
+      >
+        <div
+          class="flex justify-between items-center mb-8 text-sm font-bold text-slate-500"
+        >
+          <span
+            >Câu hỏi
+            <span id="q-current" class="text-blue-600">1</span>/10</span
+          >
+          <div class="w-48 h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              id="q-progress"
+              class="h-full bg-blue-500 transition-all duration-500"
+              style="width: 10%"
+            ></div>
+          </div>
+        </div>
+        <h3
+          id="q-title"
+          class="text-2xl text-slate-900 font-bold mb-8 leading-relaxed"
+        ></h3>
+        <div id="q-options" class="space-y-4"></div>
+      </div>
+
+      <div
+        id="result-container"
+        class="hidden bg-white border border-blue-200 rounded-[2rem] p-8 md:p-12 shadow-2xl relative overflow-hidden"
+      >
+        <div class="absolute top-0 right-0 p-8 opacity-5">
+          <i data-lucide="target" class="w-48 h-48 text-blue-600"></i>
+        </div>
+
+        <p
+          class="text-blue-600 font-bold tracking-widest uppercase mb-2 text-sm"
+        >
+          Kết quả phân tích
+        </p>
+        <h3
+          id="res-industry"
+          class="text-3xl md:text-4xl text-slate-900 font-black mb-6"
+        ></h3>
+
+        <div
+          class="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-8 relative z-10"
+        >
+          <h4
+            class="text-emerald-600 font-bold mb-4 flex items-center gap-2 text-lg"
+          >
+            <i data-lucide="briefcase" class="w-6 h-6"></i> Bức tranh Nghề
+            nghiệp
+          </h4>
+          <div
+            id="res-desc"
+            class="text-sm text-slate-700 leading-relaxed space-y-4"
+          ></div>
+        </div>
+
+        <div class="mb-8 relative z-10">
+          <h4 class="text-amber-500 font-bold mb-4 flex items-center gap-2">
+            <i data-lucide="graduation-cap" class="w-5 h-5"></i> Gợi ý Trường
+            đối tác IDP có Học bổng Tốt
+          </h4>
+          <div
+            class="grid grid-cols-1 md:grid-cols-3 gap-4"
+            id="res-schools"
+          ></div>
+        </div>
+
+        <div
+          class="mt-8 pt-6 border-t border-slate-200 text-center relative z-10"
+        >
+          <p class="text-slate-600 text-sm leading-relaxed mb-4">
+            Để biết thêm thông tin chi tiết về ngành học và lộ trình xin học
+            bổng, vui lòng đăng ký tư vấn với
+            <b
+              class="text-blue-600 cursor-pointer hover:underline"
+              onclick="openContactModal('Tư vấn định hướng ngành học')"
+              >Khôi tại IDP</b
+            >
+            miễn phí.
+          </p>
+          <button
+            onclick="resetQuiz()"
+            class="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm font-bold transition shadow-md"
+          >
+            Làm lại bài Test
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <img id="comb-cursor" src="comb.png" alt="Lược" draggable="false" />
+
+    <footer
+      class="mt-8 py-8 border-t border-slate-200 flex flex-col items-center gap-2 text-slate-400 italic"
+    >
+      <p class="text-[10px]">
+        Giải pháp định hướng toàn diện IDP Consulting by khoi.dinh@idp.com
+      </p>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+      const bgImages = {
+        us: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=2070",
+        canada:
+          "https://images.unsplash.com/photo-1503614472-8c93d56e92ce?q=80&w=2011",
+        uk: "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=2070",
+        saving:
+          "https://images.unsplash.com/photo-1574169208507-84376144848b?q=80&w=2000",
+        quiz: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?q=80&w=2000",
+        game: "https://images.unsplash.com/photo-1541829070757-22047392762e?q=80&w=2000",
+      };
+
+      let currentCountry = "us";
+      let currentView = "game";
+
+      window.closeWelcomeAndStart = function () {
+        const modal = document.getElementById("welcome-modal");
+        modal.style.opacity = "0";
+        setTimeout(() => {
+          modal.classList.add("hidden");
+        }, 300);
+
+        unlockAudio();
+        catBehaviorLoop(gameSession);
+
+        setTimeout(() => {
+          const navMenu = document.getElementById("nav-menu-container");
+          navMenu.classList.remove("opacity-0", "pointer-events-none");
+          navMenu.classList.add("opacity-100");
+        }, 5000);
+      };
+
+      window.switchView = function (view) {
+        currentView = view;
+        document
+          .querySelectorAll(".view-section")
+          .forEach((s) => s.classList.remove("active"));
+        document
+          .querySelectorAll(".nav-btn")
+          .forEach((b) => b.classList.remove("active"));
+
+        const targetSection = document.getElementById("view-" + view);
+        const targetBtn = document.getElementById("btn-" + view);
+        if (targetSection) targetSection.classList.add("active");
+        if (targetBtn) targetBtn.classList.add("active");
+
+        const bgWrapper = document.getElementById("main-bg-wrapper");
+        if (bgWrapper) {
+          bgWrapper.style.opacity = 0;
+          setTimeout(() => {
+            if (view === "info")
+              bgWrapper.style.backgroundImage = `url('${bgImages[currentCountry]}')`;
+            else if (view === "saving")
+              bgWrapper.style.backgroundImage = `url('${bgImages.saving}')`;
+            else if (view === "quiz")
+              bgWrapper.style.backgroundImage = `url('${bgImages.quiz}')`;
+            else if (view === "game")
+              bgWrapper.style.backgroundImage = `url('${bgImages.game}')`;
+
+            bgWrapper.style.opacity = 0.2; // ĐÃ CẬP NHẬT 0.2 TẠI ĐÂY
+          }, 300);
+        }
+
+        if (view === "game") {
+          document.getElementById("comb-cursor").style.display = "block";
+        } else {
+          document.getElementById("comb-cursor").style.display = "none";
+        }
+      };
+
+      window.setCountry = function (c) {
+        currentCountry = c;
+        document.querySelectorAll(".country-btn").forEach((b) => {
+          b.classList.remove("active", "bg-white", "shadow");
+          b.classList.add("text-slate-600");
+        });
+        const activeBtn = document.getElementById("btn-" + c);
+        if (activeBtn) {
+          activeBtn.classList.add("active", "bg-white", "shadow");
+          activeBtn.classList.remove("text-slate-600");
+        }
+
+        const bgWrapper = document.getElementById("main-bg-wrapper");
+        if (bgWrapper) {
+          bgWrapper.style.opacity = 0;
+          setTimeout(() => {
+            bgWrapper.style.backgroundImage = `url('${bgImages[c]}')`;
+            bgWrapper.style.opacity = 0.2; // ĐÃ CẬP NHẬT 0.2 TẠI ĐÂY
+          }, 300);
+        }
+      };
+
+      let selectedTopic = "";
+      window.openContactModal = function (topic) {
+        selectedTopic = topic;
+        const modal = document.getElementById("contact-modal");
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+        setTimeout(() => {
+          modal.style.opacity = "1";
+        }, 10);
+      };
+
+      window.closeContactModal = function () {
+        const modal = document.getElementById("contact-modal");
+        modal.style.opacity = "0";
+        setTimeout(() => {
+          modal.classList.add("hidden");
+          modal.classList.remove("flex");
+        }, 300);
+      };
+
+      window.sendEmailContact = function (e) {
+        e.preventDefault();
+        const name = document.getElementById("contact-name").value;
+        const phone = document.getElementById("contact-phone").value;
+        const note = document.getElementById("contact-note").value;
+        const subject = encodeURIComponent(
+          `Đăng ký tư vấn du học - ${selectedTopic}`
+        );
+        const body = encodeURIComponent(
+          `Chào Khôi,\n\nTôi muốn tư vấn về: ${selectedTopic}\n\nTên: ${name}\nSố điện thoại: ${phone}\nGhi chú: ${note}\n\nCảm ơn!`
+        );
+        window.location.href = `mailto:khoi.dinh@idp.com?subject=${subject}&body=${body}`;
+        window.closeContactModal();
+      };
+
+      // --- ĐÃ THÊM HÀM COPY PHONE ---
+      window.copyPhone = function () {
+        navigator.clipboard.writeText("+84909772062").then(() => {
+          const tooltip = document.getElementById("copy-tooltip");
+          tooltip.classList.remove("opacity-0");
+          tooltip.classList.add("opacity-100");
+          setTimeout(() => {
+            tooltip.classList.remove("opacity-100");
+            tooltip.classList.add("opacity-0");
+          }, 2000);
+        });
+      };
+
+      const quizData = [
+        {
+          question:
+            "1. Bạn cảm thấy hứng thú nhất khi làm việc với yếu tố nào?",
+          options: [
+            { text: "A. Máy tính, con số, mã nguồn và dữ liệu.", type: "IT" },
+            {
+              text: "B. Con người, giao tiếp, thuyết phục và lãnh đạo.",
+              type: "BIZ",
+            },
+            {
+              text: "C. Ý tưởng mới, hình ảnh, màu sắc và sự sáng tạo.",
+              type: "ART",
+            },
+            {
+              text: "D. Nghiên cứu, phòng thí nghiệm, chăm sóc và sức khỏe.",
+              type: "SCI",
+            },
+            { text: "E. Máy móc, động cơ, xây dựng và sửa chữa.", type: "ENG" },
+            {
+              text: "F. Sự kiện, ẩm thực, du lịch và dịch vụ chăm sóc.",
+              type: "HOS",
+            },
+          ],
+        },
+        {
+          question: "2. Môi trường làm việc lý tưởng của bạn là gì?",
+          options: [
+            {
+              text: "A. Văn phòng công nghệ hiện đại, làm việc nhiều với màn hình.",
+              type: "IT",
+            },
+            {
+              text: "B. Công ty đa quốc gia, môi trường linh hoạt, nhiều sự kiện.",
+              type: "BIZ",
+            },
+            {
+              text: "C. Studio nghệ thuật, không gian tự do, không gò bó.",
+              type: "ART",
+            },
+            {
+              text: "D. Viện nghiên cứu, bệnh viện, phòng Lab tiêu chuẩn.",
+              type: "SCI",
+            },
+            {
+              text: "E. Công trường, nhà máy, khu vực chế tạo thực tế.",
+              type: "ENG",
+            },
+            {
+              text: "F. Khách sạn 5 sao, resort, sân bay quốc tế.",
+              type: "HOS",
+            },
+          ],
+        },
+        {
+          question: "3. Đâu là thế mạnh tự nhiên lớn nhất của bạn?",
+          options: [
+            {
+              text: "A. Tìm ra quy luật, giải quyết vấn đề toán học/logic.",
+              type: "IT",
+            },
+            {
+              text: "B. Nắm bắt tâm lý, lập kế hoạch và quản lý dự án.",
+              type: "BIZ",
+            },
+            {
+              text: "C. Cảm thụ cái đẹp, viết lách, thiết kế, vẽ.",
+              type: "ART",
+            },
+            {
+              text: "D. Tính kiên nhẫn, tỉ mỉ, khám phá nguyên lý tự nhiên.",
+              type: "SCI",
+            },
+            {
+              text: "E. Lắp ráp, hiểu về vật lý, hình học không gian.",
+              type: "ENG",
+            },
+            {
+              text: "F. Giao tiếp thân thiện, xử lý tình huống linh hoạt.",
+              type: "HOS",
+            },
+          ],
+        },
+        {
+          question: "4. Mục tiêu thành tựu bạn muốn đạt được là?",
+          options: [
+            {
+              text: "A. Viết ra phần mềm/App được hàng triệu người sử dụng.",
+              type: "IT",
+            },
+            {
+              text: "B. Điều hành một doanh nghiệp mang lại lợi nhuận cao.",
+              type: "BIZ",
+            },
+            {
+              text: "C. Tạo ra một tác phẩm hoặc chiến dịch tạo xu hướng.",
+              type: "ART",
+            },
+            {
+              text: "D. Tìm ra phương pháp điều trị mới, cải thiện sức khỏe.",
+              type: "SCI",
+            },
+            {
+              text: "E. Chế tạo robot mới hoặc xây dựng một công trình kỷ lục.",
+              type: "ENG",
+            },
+            {
+              text: "F. Mang lại trải nghiệm hoàn hảo cho khách hàng quốc tế.",
+              type: "HOS",
+            },
+          ],
+        },
+        {
+          question: "5. Khi gặp vấn đề, bạn thường làm gì?",
+          options: [
+            {
+              text: "A. Thu thập dữ liệu và tìm lỗi sai gốc rễ bằng thuật toán.",
+              type: "IT",
+            },
+            {
+              text: "B. Hội ý team, phân chia công việc để xử lý nhanh.",
+              type: "BIZ",
+            },
+            {
+              text: "C. Đổi góc nhìn, tìm cách tiếp cận mới lạ và sáng tạo.",
+              type: "ART",
+            },
+            {
+              text: "D. Lên danh sách giả thuyết và thử nghiệm kiểm chứng.",
+              type: "SCI",
+            },
+            {
+              text: "E. Kiểm tra lại bản vẽ, đo đạc lại các thông số kỹ thuật.",
+              type: "ENG",
+            },
+            {
+              text: "F. Dùng sự khéo léo để xoa dịu tình hình ngay lập tức.",
+              type: "HOS",
+            },
+          ],
+        },
+        {
+          question: "6. Hoạt động giải trí yêu thích lúc rảnh rỗi?",
+          options: [
+            {
+              text: "A. Chơi game, vọc công nghệ, khám phá phần mềm mới.",
+              type: "IT",
+            },
+            {
+              text: "B. Tham gia câu lạc bộ, networking, đọc tin tài chính.",
+              type: "BIZ",
+            },
+            {
+              text: "C. Xem phim nghệ thuật, nghe nhạc, vẽ, đi bảo tàng.",
+              type: "ART",
+            },
+            {
+              text: "D. Đọc sách khoa học, xem phim tài liệu thiên nhiên.",
+              type: "SCI",
+            },
+            {
+              text: "E. Lắp ráp Lego, độ chế đồ điện tử, xem đua xe/robot.",
+              type: "ENG",
+            },
+            {
+              text: "F. Khám phá nhà hàng mới, đi du lịch, nấu ăn.",
+              type: "HOS",
+            },
+          ],
+        },
+        {
+          question: "7. Bạn thích phong cách làm việc nào nhất?",
+          options: [
+            {
+              text: "A. Làm việc độc lập, tập trung cao, dùng công cụ tối ưu.",
+              type: "IT",
+            },
+            {
+              text: "B. Làm việc nhóm, dẫn dắt cuộc họp, đàm phán liên tục.",
+              type: "BIZ",
+            },
+            {
+              text: "C. Tự do, không gò bó thời gian, làm theo cảm hứng.",
+              type: "ART",
+            },
+            {
+              text: "D. Tuân thủ nghiêm ngặt quy trình nghiên cứu.",
+              type: "SCI",
+            },
+            {
+              text: "E. Thực hành trực tiếp, thao tác với công cụ vật lý.",
+              type: "ENG",
+            },
+            {
+              text: "F. Môi trường năng động, di chuyển nhiều, tiếp xúc khách hàng.",
+              type: "HOS",
+            },
+          ],
+        },
+        {
+          question: "8. Ở trường phổ thông, bạn giỏi nhóm môn nào nhất?",
+          options: [
+            { text: "A. Tin học, Đại số, Tiếng Anh.", type: "IT" },
+            {
+              text: "B. Giáo dục công dân, Ngoại ngữ, Hoạt động ngoại khóa.",
+              type: "BIZ",
+            },
+            { text: "C. Ngữ văn, Mỹ thuật, Âm nhạc.", type: "ART" },
+            { text: "D. Sinh học, Hóa học, Y khoa cơ bản.", type: "SCI" },
+            { text: "E. Vật lý, Hình học, Công nghệ.", type: "ENG" },
+            { text: "F. Địa lý, Lịch sử, Ngoại ngữ thứ 2.", type: "HOS" },
+          ],
+        },
+        {
+          question: "9. Nếu một dự án thất bại, phản ứng của bạn là?",
+          options: [
+            {
+              text: "A. Kiểm tra lại toàn bộ hệ thống code để rà lỗi (Debug).",
+              type: "IT",
+            },
+            {
+              text: "B. Đánh giá lại rủi ro tài chính & tìm kế hoạch dự phòng.",
+              type: "BIZ",
+            },
+            {
+              text: "C. Vứt bỏ bản nháp cũ, đi tìm nguồn cảm hứng hoàn toàn mới.",
+              type: "ART",
+            },
+            {
+              text: "D. Xem xét lại các biến số trong thí nghiệm để tìm sai số.",
+              type: "SCI",
+            },
+            {
+              text: "E. Tính toán lại sức chịu tải, vật liệu và thiết kế cơ bản.",
+              type: "ENG",
+            },
+            {
+              text: "F. Ghi nhận phản hồi của khách hàng để cải thiện dịch vụ ngay.",
+              type: "HOS",
+            },
+          ],
+        },
+        {
+          question: "10. Bạn mong muốn tạo ra tác động gì cho xã hội?",
+          options: [
+            {
+              text: "A. Tự động hóa bằng AI, đưa công nghệ vào mọi mặt đời sống.",
+              type: "IT",
+            },
+            {
+              text: "B. Tạo ra nhiều việc làm, phát triển kinh tế thịnh vượng.",
+              type: "BIZ",
+            },
+            {
+              text: "C. Nâng cao thẩm mỹ, văn hóa và đời sống tinh thần cộng đồng.",
+              type: "ART",
+            },
+            {
+              text: "D. Chữa bệnh, cứu người và bảo vệ môi trường trái đất.",
+              type: "SCI",
+            },
+            {
+              text: "E. Xây dựng hạ tầng hiện đại, giao thông thông minh.",
+              type: "ENG",
+            },
+            {
+              text: "F. Kết nối các nền văn hóa, tạo ra những trải nghiệm hạnh phúc.",
+              type: "HOS",
+            },
+          ],
+        },
+      ];
+
+      const resultData = {
+        IT: {
+          title: "Công Nghệ Thông Tin & Khoa Học Máy Tính",
+          desc: "<p><b>Công việc thực tế:</b> Lập trình viên phần mềm, Kỹ sư Trí tuệ nhân tạo (AI), Chuyên gia An ninh mạng, Kỹ sư Dữ liệu.</p><p><b>Quy trình làm việc:</b> Khảo sát yêu cầu ➔ Thiết kế kiến trúc/logic hệ thống ➔ Lập trình (Coding) ➔ Kiểm thử (Testing) ➔ Triển khai và Bảo trì.</p><p><b>Sản phẩm đầu ra:</b> Các Website, Ứng dụng di động (Apps), Hệ thống AI tự động, Phầm mềm quản lý doanh nghiệp.</p>",
+          schools: {
+            us: [
+              "Arizona State University (ASU)",
+              "Stony Brook University",
+              "Univ. of Illinois Chicago",
+            ],
+            canada: [
+              "University of Waterloo",
+              "McMaster University",
+              "Toronto Metropolitan",
+            ],
+            uk: [
+              "Imperial College London",
+              "University of Southampton",
+              "Lancaster University",
+            ],
+          },
+        },
+        BIZ: {
+          title: "Kinh Doanh, Tài Chính & Quản Trị",
+          desc: "<p><b>Công việc thực tế:</b> Quản trị viên dự án, Chuyên gia Marketing số, Giám đốc Tài chính, Nhà Phân tích đầu tư.</p><p><b>Quy trình làm việc:</b> Nghiên cứu thị trường ➔ Phân tích dữ liệu tài chính ➔ Lên chiến lược & Phân bổ ngân sách ➔ Triển khai & Quản lý nhân sự ➔ Đánh giá doanh thu/Lợi nhuận.</p><p><b>Sản phẩm đầu ra:</b> Kế hoạch kinh doanh, Các chiến dịch bán hàng hiệu quả, Báo cáo tăng trưởng doanh nghiệp.</p>",
+          schools: {
+            us: [
+              "Pace University",
+              "American University",
+              "University of Connecticut",
+            ],
+            canada: [
+              "York University",
+              "Simon Fraser University",
+              "Toronto Metropolitan",
+            ],
+            uk: [
+              "University of Warwick",
+              "University of Exeter",
+              "University of Leeds",
+            ],
+          },
+        },
+        ART: {
+          title: "Thiết Kế, Truyền Thông & Sáng Tạo",
+          desc: "<p><b>Công việc thực tế:</b> Graphic Designer, Đạo diễn Nghệ thuật, Chuyên viên Quan hệ công chúng (PR), Sáng tạo nội dung (Content Creator).</p><p><b>Quy trình làm việc:</b> Lên ý tưởng (Brainstorming) ➔ Phác thảo (Sketching/Storyboard) ➔ Thiết kế chi tiết trên phần mềm ➔ Chỉnh sửa cùng khách hàng ➔ Xuất bản/Ra mắt.</p><p><b>Sản phẩm đầu ra:</b> Bộ nhận diện thương hiệu, Video clip quảng cáo, Các bộ phim nghệ thuật, Thiết kế giao diện (UX/UI).</p>",
+          schools: {
+            us: [
+              "Savannah College (SCAD)",
+              "Kent State University",
+              "Adelphi University",
+            ],
+            canada: [
+              "OCAD University",
+              "Sheridan College",
+              "Simon Fraser University",
+            ],
+            uk: [
+              "Newcastle University",
+              "Loughborough University",
+              "Goldsmiths, U. of London",
+            ],
+          },
+        },
+        SCI: {
+          title: "Y Tế, Sức Khỏe & Khoa Học Cơ Bản",
+          desc: "<p><b>Công việc thực tế:</b> Bác sĩ, Dược sĩ lâm sàng, Kỹ sư Y sinh, Nhà khoa học nghiên cứu sinh tế bào.</p><p><b>Quy trình làm việc:</b> Nghiên cứu lý thuyết ➔ Thiết lập phòng thí nghiệm ➔ Thu thập & Phân tích số liệu/mẫu vật ➔ Thử nghiệm lâm sàng ➔ Báo cáo & Ứng dụng.</p><p><b>Sản phẩm đầu ra:</b> Phác đồ điều trị bệnh mới, Các loại vắc-xin/thuốc, Công nghệ vật liệu mới, Báo cáo nghiên cứu khoa học.</p>",
+          schools: {
+            us: [
+              "Johns Hopkins University",
+              "University of Utah",
+              "Univ. of Illinois Chicago",
+            ],
+            canada: [
+              "McGill University",
+              "Dalhousie University",
+              "University of Alberta",
+            ],
+            uk: [
+              "University College London",
+              "University of Birmingham",
+              "University of Nottingham",
+            ],
+          },
+        },
+        ENG: {
+          title: "Kỹ Thuật, Cơ Khí & Cùng Robotics",
+          desc: "<p><b>Công việc thực tế:</b> Kỹ sư Cơ khí, Kỹ sư Điện/Điện tử, Kỹ sư Xây dựng, Chuyên gia tự động hóa Robotics.</p><p><b>Quy trình làm việc:</b> Khảo sát địa hình/yêu cầu ➔ Vẽ bản thiết kế kỹ thuật (AutoCAD) ➔ Chạy mô phỏng tính toán ➔ Chế tạo/Thi công ➔ Vận hành chạy thử.</p><p><b>Sản phẩm đầu ra:</b> Robot công nghiệp, Các tòa nhà chọc trời, Động cơ máy bay/ô tô, Hệ thống điện thông minh.</p>",
+          schools: {
+            us: [
+              "Purdue University",
+              "Texas A&M University",
+              "Ohio State University",
+            ],
+            canada: [
+              "University of Waterloo",
+              "University of Alberta",
+              "McMaster University",
+            ],
+            uk: [
+              "University of Cambridge",
+              "University of Bristol",
+              "University of Sheffield",
+            ],
+          },
+        },
+        HOS: {
+          title: "Du Lịch, Khách Sạn & Dịch Vụ Ẩm Thực",
+          desc: "<p><b>Công việc thực tế:</b> Quản lý Khách sạn/Resort, Chuyên gia Tổ chức sự kiện quốc tế, Điều hành tour du lịch, Đầu bếp trưởng.</p><p><b>Quy trình làm việc:</b> Đánh giá nhu cầu khách hàng ➔ Lên kế hoạch dịch vụ/thực đơn ➔ Điều phối nhân sự vận hành ➔ Giám sát chất lượng trực tiếp ➔ Đo lường độ hài lòng.</p><p><b>Sản phẩm đầu ra:</b> Các tour trải nghiệm cao cấp, Chuỗi sự kiện/hội nghị quốc tế, Tiệc ẩm thực 5 sao.</p>",
+          schools: {
+            us: [
+              "Florida International Univ.",
+              "Univ. of Central Florida",
+              "George Mason Univ.",
+            ],
+            canada: [
+              "Toronto Metropolitan",
+              "Centennial College",
+              "George Brown College",
+            ],
+            uk: [
+              "University of Surrey",
+              "Oxford Brookes University",
+              "Bournemouth University",
+            ],
+          },
+        },
+      };
+
+      let currentQIndex = 0;
+      let userScores = { IT: 0, BIZ: 0, ART: 0, SCI: 0, ENG: 0, HOS: 0 };
+
+      window.renderQuestion = function () {
+        if (currentQIndex >= quizData.length) {
+          window.showQuizResult();
+          return;
+        }
+        const q = quizData[currentQIndex];
+        document.getElementById("q-current").innerText = currentQIndex + 1;
+        document.getElementById("q-progress").style.width = `${
+          ((currentQIndex + 1) / quizData.length) * 100
+        }%`;
+        document.getElementById("q-title").innerText = q.question;
+        const optionsContainer = document.getElementById("q-options");
+        optionsContainer.innerHTML = "";
+        q.options.forEach((opt) => {
+          const btn = document.createElement("button");
+          btn.className = "quiz-option";
+          btn.innerText = opt.text;
+          btn.onclick = () => {
+            userScores[opt.type]++;
+            currentQIndex++;
+            window.renderQuestion();
+          };
+          optionsContainer.appendChild(btn);
+        });
+      };
+
+      window.showQuizResult = function () {
+        document.getElementById("quiz-container").classList.add("hidden");
+        document.getElementById("result-container").classList.remove("hidden");
+
+        let topType = "IT";
+        let maxScore = 0;
+        for (const [type, score] of Object.entries(userScores)) {
+          if (score > maxScore) {
+            maxScore = score;
+            topType = type;
+          }
+        }
+        const res = resultData[topType];
+
+        document.getElementById("res-industry").innerText = res.title;
+        document.getElementById(
+          "res-desc"
+        ).innerHTML = `<div class="space-y-3">${res.desc}</div>`;
+
+        document.getElementById("res-schools").innerHTML = `
+            <div class="bg-white p-4 rounded-xl border border-blue-200 shadow-sm">
+                <h5 class="text-xs font-black text-blue-600 mb-3 tracking-widest">🇺🇸 MỸ (USA)</h5>
+                <ul class="text-sm text-slate-700 space-y-2">${res.schools.us
+                  .map((s) => `<li>• ${s}</li>`)
+                  .join("")}</ul>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-red-200 shadow-sm">
+                <h5 class="text-xs font-black text-red-600 mb-3 tracking-widest">🇨🇦 CANADA</h5>
+                <ul class="text-sm text-slate-700 space-y-2">${res.schools.canada
+                  .map((s) => `<li>• ${s}</li>`)
+                  .join("")}</ul>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-indigo-200 shadow-sm">
+                <h5 class="text-xs font-black text-indigo-600 mb-3 tracking-widest">🇬🇧 UNITED KINGDOM</h5>
+                <ul class="text-sm text-slate-700 space-y-2">${res.schools.uk
+                  .map((s) => `<li>• ${s}</li>`)
+                  .join("")}</ul>
+            </div>
+        `;
+      };
+
+      window.resetQuiz = function () {
+        currentQIndex = 0;
+        userScores = { IT: 0, BIZ: 0, ART: 0, SCI: 0, ENG: 0, HOS: 0 };
+        document.getElementById("result-container").classList.add("hidden");
+        document.getElementById("quiz-container").classList.remove("hidden");
+        window.renderQuestion();
+      };
+
+      const IMG_IDLE = "cat_idle.png";
+      const IMG_LOOK = "cat_look.png";
+      const IMG_BITE = "cat_bite.png";
+
+      const preloadedIdle = new Image();
+      preloadedIdle.src = IMG_IDLE;
+      const preloadedLook = new Image();
+      preloadedLook.src = IMG_LOOK;
+      const preloadedBite = new Image();
+      preloadedBite.src = IMG_BITE;
+
+      const sndBrush = new Audio("brush.mp3");
+      const sndAlert = new Audio("alert.mp3");
+      const sndBite = new Audio("bite.mp4");
+
+      sndBrush.volume = 1.0;
+      sndAlert.volume = 0.4;
+      sndBite.volume = 1.0;
+
+      let audioUnlocked = false;
+      function unlockAudio() {
+        if (!audioUnlocked) {
+          sndBrush
+            .play()
+            .then(() => {
+              sndBrush.pause();
+              sndBrush.currentTime = 0;
+            })
+            .catch(() => {});
+          sndAlert
+            .play()
+            .then(() => {
+              sndAlert.pause();
+              sndAlert.currentTime = 0;
+            })
+            .catch(() => {});
+          sndBite
+            .play()
+            .then(() => {
+              sndBite.pause();
+              sndBite.currentTime = 0;
+            })
+            .catch(() => {});
+          audioUnlocked = true;
+        }
+      }
+
+      function playAudio(audioObj) {
+        audioObj.pause();
+        audioObj.currentTime = 0;
+        audioObj.play().catch(() => {});
+      }
+
+      function stopAudio(audioObj) {
+        audioObj.pause();
+        audioObj.currentTime = 0;
+      }
+
+      function stopAllAudio() {
+        stopAudio(sndBrush);
+        stopAudio(sndAlert);
+        stopAudio(sndBite);
+      }
+
+      let score = 0;
+      let isGameOver = false;
+      let isCatLooking = false;
+      let isMouseDown = false;
+      let currentTimeout;
+      let gameSession = 0;
+
+      let brushDistance = 0;
+      const DISTANCE_THRESHOLD = 270;
+      let lastX = 0;
+      let lastY = 0;
+
+      const catIdle = document.getElementById("cat-idle");
+      const catLook = document.getElementById("cat-look");
+      const catBite = document.getElementById("cat-bite");
+
+      const combCursor = document.getElementById("comb-cursor");
+      const scoreDisplay = document.getElementById("score");
+      const gameOverScreen = document.getElementById("game-over-screen");
+      const gameContainer = document.getElementById("game-container");
+      const finalScoreDisplay = document.getElementById("final-score");
+
+      function setCatState(state) {
+        catIdle.classList.remove("active");
+        catLook.classList.remove("active");
+        catBite.classList.remove("active");
+
+        if (state === "idle") catIdle.classList.add("active");
+        if (state === "look") catLook.classList.add("active");
+        if (state === "bite") catBite.classList.add("active");
+      }
+
+      function spawnFur(clientX, clientY) {
+        const fur = document.createElement("div");
+        fur.classList.add("fur-particle");
+
+        const rect = gameContainer.getBoundingClientRect();
+        const relativeX = clientX - rect.left;
+        const relativeY = clientY - rect.top;
+
+        const offsetX = (Math.random() - 0.5) * 60;
+        const offsetY = (Math.random() - 0.5) * 60;
+
+        const furColors = [
+          "#ffffff",
+          "#f5f5f5",
+          "#dcdcdc",
+          "#a9a9a9",
+          "#7a7a7a",
+          "#555555",
+          "#d2b48c",
+        ];
+
+        const thickness = Math.random() * 1.0 + 0.2;
+        const length = Math.random() * 25 + 10;
+        const color = furColors[Math.floor(Math.random() * furColors.length)];
+        const fallSpeed = Math.random() * 1.5 + 1.2;
+
+        fur.style.width = thickness + "px";
+        fur.style.height = length + "px";
+        fur.style.backgroundColor = color;
+        fur.style.setProperty("--fall-duration", fallSpeed + "s");
+        fur.style.left = relativeX + offsetX + "px";
+        fur.style.top = relativeY + offsetY + "px";
+
+        const sway = (Math.random() * 40 + 20) * (Math.random() > 0.5 ? 1 : -1);
+        let r = Math.random() * 360;
+
+        fur.style.setProperty("--r0", r + "deg");
+        fur.style.setProperty("--r1", r + sway * 0.5 + "deg");
+        fur.style.setProperty("--r2", r - sway * 0.5 + "deg");
+        fur.style.setProperty("--r3", r + sway + "deg");
+        fur.style.setProperty("--x1", sway + "px");
+        fur.style.setProperty("--x2", -sway * 0.5 + "px");
+        fur.style.setProperty("--x3", sway * 1.2 + "px");
+
+        gameContainer.appendChild(fur);
+
+        setTimeout(() => {
+          if (fur.parentElement) fur.remove();
+        }, fallSpeed * 1000 + 100);
+      }
+
+      function getPointerPos(e) {
+        if (e.touches && e.touches.length > 0)
+          return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        return { x: e.clientX, y: e.clientY };
+      }
+
+      function updateCombPosition(e) {
+        if (currentView !== "game") return;
+        const pos = getPointerPos(e);
+        combCursor.style.left = pos.x - 10 + "px";
+        combCursor.style.top = pos.y - 10 + "px";
+      }
+
+      document.addEventListener("mousemove", updateCombPosition);
+      document.addEventListener("touchmove", updateCombPosition, {
+        passive: false,
+      });
+
+      function handlePointerDown(e) {
+        if (currentView !== "game") return;
+        isMouseDown = true;
+        combCursor.classList.add("brushing");
+        brushDistance = 0;
+
+        const pos = getPointerPos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+        updateCombPosition(e);
+
+        if (isCatLooking && !isGameOver) {
+          triggerGameOver();
+        }
+      }
+
+      document.addEventListener("mousedown", handlePointerDown);
+      document.addEventListener("touchstart", handlePointerDown, {
+        passive: false,
+      });
+
+      const releasePointer = () => {
+        isMouseDown = false;
+        combCursor.classList.remove("brushing");
+        stopAudio(sndBrush);
+      };
+
+      document.addEventListener("mouseup", releasePointer);
+      document.addEventListener("mouseleave", releasePointer);
+      document.addEventListener("touchend", releasePointer);
+      document.addEventListener("touchcancel", releasePointer);
+
+      function handlePointerMoveCat(e) {
+        if (isGameOver || !isMouseDown || currentView !== "game") return;
+
+        if (e.cancelable) e.preventDefault();
+
+        if (isCatLooking) {
+          triggerGameOver();
+        } else {
+          const pos = getPointerPos(e);
+          let deltaX = pos.x - lastX;
+          let deltaY = pos.y - lastY;
+          lastX = pos.x;
+          lastY = pos.y;
+
+          brushDistance += Math.abs(deltaX) + Math.abs(deltaY);
+
+          if (brushDistance >= DISTANCE_THRESHOLD) {
+            score++;
+            scoreDisplay.innerText = score;
+            playAudio(sndBrush);
+
+            let numFurs = Math.floor(Math.random() * 4) + 3;
+            for (let i = 0; i < numFurs; i++) spawnFur(pos.x, pos.y);
+
+            brushDistance = 0;
+          }
+        }
+      }
+
+      [catIdle, catLook].forEach((cat) => {
+        cat.addEventListener("mousemove", handlePointerMoveCat);
+        cat.addEventListener("touchmove", handlePointerMoveCat, {
+          passive: false,
+        });
+      });
+
+      function catBehaviorLoop(session) {
+        if (isGameOver || session !== gameSession) return;
+
+        let safeTime = Math.random() * 2000 + 1500;
+        currentTimeout = setTimeout(() => {
+          if (isGameOver || session !== gameSession) return;
+
+          setCatState("look");
+          if (currentView === "game") playAudio(sndAlert);
+
+          currentTimeout = setTimeout(() => {
+            if (isGameOver || session !== gameSession) return;
+            isCatLooking = true;
+
+            let lookTime = Math.random() * 800 + 600;
+            currentTimeout = setTimeout(() => {
+              if (isGameOver || session !== gameSession) return;
+              isCatLooking = false;
+              setCatState("idle");
+              catBehaviorLoop(session);
+            }, lookTime);
+          }, 350);
+        }, safeTime);
+      }
+
+      function triggerGameOver() {
+        isGameOver = true;
+        isCatLooking = false;
+        clearTimeout(currentTimeout);
+
+        setCatState("bite");
+        gameContainer.classList.add("shake");
+        catBite.classList.add("zoomed-bite");
+
+        stopAllAudio();
+        playAudio(sndBite);
+
+        setTimeout(() => {
+          finalScoreDisplay.innerText = score;
+          gameOverScreen.style.display = "flex";
+          document.getElementById("game-wrapper").style.cursor = "auto";
+          combCursor.style.display = "none";
+        }, 2500);
+      }
+
+      window.resetGame = function () {
+        gameSession++;
+        clearTimeout(currentTimeout);
+        score = 0;
+        scoreDisplay.innerText = score;
+        isGameOver = false;
+        isCatLooking = false;
+        isMouseDown = false;
+        brushDistance = 0;
+
+        stopAllAudio();
+        setCatState("idle");
+        gameContainer.classList.remove("shake");
+        catBite.classList.remove("zoomed-bite");
+
+        const oldFurs = document.querySelectorAll(".fur-particle");
+        oldFurs.forEach((fur) => fur.remove());
+
+        gameOverScreen.style.display = "none";
+        document.getElementById("game-wrapper").style.cursor = "none";
+        combCursor.style.display = "block";
+
+        catBehaviorLoop(gameSession);
+      };
+
+      window.onload = () => {
+        if (typeof lucide !== "undefined") lucide.createIcons();
+        switchView("game");
+        setCountry("us");
+        window.renderQuestion();
+      };
+    </script>
+  </body>
+</html>
